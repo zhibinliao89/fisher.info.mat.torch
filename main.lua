@@ -1,0 +1,82 @@
+--  This script is modifed from:
+--  https://github.com/facebook/fb.resnet.torch
+--  
+--  Original copyright notes:
+--  Copyright (c) 2016, Facebook, Inc.
+--  All rights reserved.
+--
+--  This source code is licensed under the BSD-style license found in the
+--  LICENSE file in the root directory of this source tree. An additional grant
+--  of patent rights can be found in the PATENTS file in the same directory.
+--
+require 'torch'
+require 'paths'
+require 'optim'
+require 'nn'
+
+local models = require 'models/init'
+local Trainer = require 'train'
+local opts = require 'opts'
+local checkpoints = require 'checkpoints'
+
+torch.setdefaulttensortype('torch.FloatTensor')
+torch.setnumthreads(1)
+
+local opt = opts.parse(arg)
+torch.manualSeed(opt.manualSeed)
+cutorch.manualSeedAll(opt.manualSeed)
+
+-- Load previous checkpoint, if it exists
+local checkpoint, optimState
+if opt.testOnly then
+   checkpoint, optimState = checkpoints.any(opt)
+else
+   checkpoint, optimState = checkpoints.latest(opt)
+end
+
+-- Create model
+local model, criterion = models.setup(opt, checkpoint)
+
+-- Data loading
+local DataLoader
+DataLoader = require 'dataloader'
+
+
+local trainLoader, valLoader = DataLoader.create(opt)
+
+-- The trainer handles the training loop and evaluation on validation set
+local trainer = Trainer(model, criterion, opt, optimState)
+  
+if opt.testOnly then
+   local trainTop1, trainTop5, trainLoss = trainer:test(opt.epochNumber, trainLoader)
+   local testTop1, testTop5, testLoss = trainer:test(opt.epochNumber, valLoader)
+
+   checkpoints.saveScore(opt.epochNumber, opt, trainTop1, trainTop5, trainLoss, testTop1, testTop5, testLoss)
+   print(string.format(' * Finished top1: %6.3f  top5: %6.3f', testTop1, testTop5))
+   return
+end
+
+local startEpoch = checkpoint and checkpoint.epoch + 1 or opt.epochNumber
+local bestTop1 = math.huge
+local bestTop5 = math.huge
+
+for epoch = startEpoch, opt.nEpochs do
+
+   -- Train for a single epoch
+   local trainTop1, trainTop5, trainLoss, trainCond, trainEpochTime = trainer:train(epoch, trainLoader)
+   
+   -- Run model on validation set
+   local testTop1, testTop5, testLoss, testEpochTime = trainer:test(epoch, valLoader)
+
+   local bestModel = false
+   if testTop1 < bestTop1 then
+      bestModel = true
+      bestTop1 = testTop1
+      bestTop5 = testTop5
+      print(' * Best model ', testTop1, testTop5)
+   end
+
+   checkpoints.save(epoch, model, trainer.optimState, bestModel, opt, trainTop1, trainTop5, trainLoss, trainCond, trainEpochTime, testTop1, testTop5, testLoss, testEpochTime)
+end
+
+print(string.format(' * Finished top1: %6.3f  top5: %6.3f', bestTop1, bestTop5))
