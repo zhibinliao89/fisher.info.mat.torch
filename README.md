@@ -1,7 +1,7 @@
 Approximate Fisher Information Matrix to Characterise the Training of Deep Neural Networks
 ============================
 
-This repository implements the functionality of the Jacobian matrix and the approximate Fisher Information Matrix (FIM) (a.k.a., the sample covarience matrix) calculation during the training of deep neural networks.  The Jacobian matrix can be used to calculate the FIM by: ``FIM = JJ^T``, and we can derive the eigenvalues and the condition number of the FIM to characterise the training of a network.  A detailed explaination can be found in [this paper](https://arxiv.org/).
+This repository implements the functionality of the Jacobian matrix and the approximate Fisher Information Matrix (FIM) (a.k.a., the sample covarience matrix) calculation during the training of deep neural networks.  The Jacobian matrix can be used to calculate the FIM by: ``FIM = JJ^T``, and we can derive the eigenvalues and the condition number of the FIM to characterise the training of a network.  A detailed explaination can be found in [this paper](http://arxiv.org/abs/1810.06767).
 
 This code extends the [torch/nn](https://github.com/torch/nn) library for computing the Jacobian for nn.linear, nn.BatchNormalization, and nn.SpatialBatchNormalization layers.  It also extends the [cudnn.torch](https://github.com/soumith/cudnn.torch) library for computing the Jacobian for cudnn.SpatialConvolution layer.  The extensions for the respective layers can be found in [patch](patch) in this format: layernameFullGrad.  Please note there are many other trainable layers, but they are not considered in this repository.
 
